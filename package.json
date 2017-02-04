@@ -1,0 +1,38 @@
+{
+  "name": "go-component-packages",
+  "version": "0.0.1",
+  "description": "Yaml template loader for go-component",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shadowmint/go-component-packages.git"
+  },
+  "files": [
+    "index.js",
+    "scripts",
+    "src"
+  ],
+  "author": "douglas.linder@gmail.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/shadowmint/go-component-packages/issues"
+  },
+  "homepage": "https://github.com/shadowmint/go-component-packages",
+  "scripts": {
+    "test": "go test -v ./src/ntoolkit/...",
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "dependencies": {
+    "go-afero": "github:shadowmint/go-afero",
+    "go-assert": "github:shadowmint/go-assert",
+    "go-component": "github:shadowmint/go-component",
+    "go-errors": "github:shadowmint/go-errors",
+    "go-futures": "github:shadowmint/go-futures",
+    "go-iter": "github:shadowmint/go-iter",
+    "go-threadpool": "github:shadowmint/go-threadpool",
+    "go-x-text": "github:shadowmint/go-x-text",
+    "go-yaml": "github:shadowmint/go-yaml#1.0.0",
+    "mkdirp": "^0.5.1",
+    "ncp": "^2.0.0"
+  }
+}
