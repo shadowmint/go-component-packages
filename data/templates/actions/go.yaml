@@ -1,4 +1,0 @@
-name: "*mud/actions.GoHandler"
-template: |
-	{{- $data := . -}}
-    Going somewhere?

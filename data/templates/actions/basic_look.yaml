@@ -1,3 +1,0 @@
-name: "*mud/tests_test.BasicLookHandler"
-template: |
-  {{textnode "response" "text" .}}
