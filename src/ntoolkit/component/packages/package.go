@@ -41,7 +41,7 @@ func (p *Package) Load(workspacePath string) error {
 		return err
 	}
 	if errs.HasErrors() {
-		return errors.Fail(ErrLoadFailed{Errors: errs.All()}, nil, "Failed to load some objects")
+		return errors.Fail(ErrLoadFailed{}, errors.Data(errs.All()), "Failed to load some objects")
 	} else {
 		p.data.Sync(data)
 	}
