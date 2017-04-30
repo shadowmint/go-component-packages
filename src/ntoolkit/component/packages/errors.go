@@ -4,3 +4,7 @@ package packages
 type ErrLoadFailed struct{
 	Errors []error
 }
+
+// ErrBadFile is an error to wrap a file load error with details
+type ErrBadFile struct {
+}

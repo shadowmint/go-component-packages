@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"ntoolkit/component"
+	"fmt"
 )
 
 type Package struct {
@@ -19,7 +20,7 @@ type Package struct {
 // New returns a new package
 func New(fs afero.Fs, workerCount int) *Package {
 	rtn := &Package{
-		fs: fs,
+		fs:   fs,
 		pool: threadpool.New(),
 		data: newLockedHash()}
 	rtn.pool.MaxThreads = workerCount
@@ -49,17 +50,17 @@ func (p *Package) Load(workspacePath string) error {
 }
 
 // Background load a template
-func (p *Package) DeferLoadTemplate(workspacePath string, path string, data *lockedHash, errors *errorList) {
+func (p *Package) DeferLoadTemplate(workspacePath string, path string, data *lockedHash, errs *errorList) {
 	p.pool.Run(func() {
 		raw, err := afero.ReadFile(p.fs, path)
 		if err != nil {
-			errors.Add(err)
+			errs.Add(err)
 			return
 		}
 
 		template, err := convertYamlToTemplate(string(raw))
-		if (err != nil) {
-			errors.Add(err)
+		if err != nil {
+			errs.Add(errors.Fail(ErrBadFile{}, err, fmt.Sprintf("Bad file: %s", path)))
 			return
 		}
 

@@ -1,6 +1,6 @@
 {
   "name": "go-component-packages",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Yaml template loader for go-component",
   "main": "index.js",
   "repository": {
