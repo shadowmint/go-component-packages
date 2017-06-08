@@ -2,100 +2,73 @@ package packages
 
 import (
 	"github.com/spf13/afero"
-	"ntoolkit/threadpool"
-	"ntoolkit/errors"
-	"ntoolkit/iter"
-	"regexp"
-	"strings"
 	"ntoolkit/component"
+	"ntoolkit/errors"
 	"fmt"
 )
 
-type Package struct {
-	fs   afero.Fs
-	pool *threadpool.ThreadPool
-	data *lockedHash
+const DEFAULT_WORKER_COUNT = 10
+
+type Config struct {
+	Fs      afero.Fs
+	Workers int
+	Factory *component.ObjectFactory
 }
 
-// New returns a new package
-func New(fs afero.Fs, workerCount int) *Package {
+type Package struct {
+	Config    Config
+	Templates map[string]*component.ObjectTemplate
+}
+
+// New returns a new package instance
+func New(config ...Config) *Package {
 	rtn := &Package{
-		fs:   fs,
-		pool: threadpool.New(),
-		data: newLockedHash()}
-	rtn.pool.MaxThreads = workerCount
+		Templates: make(map[string]*component.ObjectTemplate),
+	}
+	if len(config) > 0 {
+		rtn.Config = config[0]
+	}
+	packageConfigDefaults(&rtn.Config)
 	return rtn
 }
 
-// Load a workspace and parse all objects in it, bind them to the runtime.
-func (p *Package) Load(workspacePath string) error {
-	items := newFileIter(workspacePath, p.fs)
-	var err error
-	var v interface{}
-	data := newLockedHash()
-	errs := newErrorList()
-	for v, err = items.Next(); err == nil; v, err = items.Next() {
-		p.DeferLoadTemplate(workspacePath, v.(string), data, errs)
+func packageConfigDefaults(config *Config) {
+	if config.Workers <= 0 {
+		config.Workers = DEFAULT_WORKER_COUNT
 	}
-	p.pool.Wait()
-	if !errors.Is(err, iter.ErrEndIteration{}) {
+	if config.Fs == nil {
+		config.Fs = afero.NewOsFs()
+	}
+	if config.Factory == nil {
+		config.Factory = component.NewObjectFactory()
+	}
+}
+
+// Load a workspace path.
+func (pack *Package) Load(path string) error {
+	loader := NewPackageLoader(pack.Config.Fs, pack.Config.Workers)
+	if err := loader.Load(path); err != nil {
 		return err
 	}
-	if errs.HasErrors() {
-		return errors.Fail(ErrLoadFailed{}, errors.Data(errs.All()), "Failed to load some objects")
-	} else {
-		p.data.Sync(data)
+	values := loader.Data()
+	for key := range values {
+		if _, ok := pack.Templates[key]; ok {
+			return errors.Fail(ErrDuplicateName{}, nil, fmt.Sprintf("Duplicate name %s in workspace %s", key, path))
+		} else {
+			pack.Templates[key] = values[key]
+		}
 	}
 	return nil
 }
 
-// Background load a template
-func (p *Package) DeferLoadTemplate(workspacePath string, path string, data *lockedHash, errs *errorList) {
-	p.pool.Run(func() {
-		raw, err := afero.ReadFile(p.fs, path)
+// Spawn a new instance of the given template by name, if it exists.
+func (pack *Package) Spawn(templateName string) (*component.Object, error) {
+	if template, ok := pack.Templates[templateName]; ok {
+		obj, err := pack.Config.Factory.Deserialize(template)
 		if err != nil {
-			errs.Add(err)
-			return
+			return nil, errors.Fail(ErrBadTemplate{}, err, fmt.Sprintf("Failed to thraw template: %s", templateName))
 		}
-
-		template, err := convertYamlToTemplate(string(raw))
-		if err != nil {
-			errs.Add(errors.Fail(ErrBadFile{}, err, fmt.Sprintf("Bad file: %s", path)))
-			return
-		}
-
-		fixed := strings.Replace(path, "\\", "/", -1)
-		assetPath := strings.TrimPrefix(fixed, workspacePath)
-		data.Add(assetPath, template)
-	})
-}
-
-// Return all keys
-func (p *Package) Keys() []string {
-	p.data.lock.Lock()
-	keys := make([]string, 0)
-	for key := range p.data.data {
-		keys = append(keys, key)
+		return obj, nil
 	}
-	p.data.lock.Unlock()
-	return keys
-}
-
-// Return a yield iterator that matches a given regex
-func (p *Package) Find(pattern string) ([]*component.ObjectTemplate, error) {
-	expr, err := regexp.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	p.data.lock.Lock()
-	values := make([]*component.ObjectTemplate, 0)
-	for key := range p.data.data {
-		if expr.MatchString(key) {
-			values = append(values, p.data.data[key])
-		}
-	}
-
-	p.data.lock.Unlock()
-	return values, nil
+	return nil, errors.Fail(ErrBadTemplate{}, nil, fmt.Sprintf("No such template: %s", templateName))
 }

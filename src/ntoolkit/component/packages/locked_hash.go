@@ -3,6 +3,8 @@ package packages
 import (
 	"sync"
 	"ntoolkit/component"
+	"ntoolkit/errors"
+	"fmt"
 )
 
 type lockedHash struct {
@@ -16,10 +18,16 @@ func newLockedHash() *lockedHash {
 		data: make(map[string]*component.ObjectTemplate)}
 }
 
-func (l *lockedHash) Add(path string, value *component.ObjectTemplate) {
+func (l *lockedHash) Add(path string, value *component.ObjectTemplate) error {
+	var err error
 	l.lock.Lock()
-	l.data[path] = value
+	if _, ok := l.data[value.Name]; ok {
+		err = errors.Fail(ErrDuplicateName{}, nil, fmt.Sprintf("Duplicate name %s in object %s", value.Name, path))
+	} else {
+		l.data[path] = value
+	}
 	l.lock.Unlock()
+	return err
 }
 
 func (l *lockedHash) Sync(remote *lockedHash) {
